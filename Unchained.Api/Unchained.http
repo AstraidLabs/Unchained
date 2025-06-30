@@ -1,0 +1,6 @@
+@Unchained_HostAddress = http://localhost:5247
+
+GET {{Unchained_HostAddress}}/unchained/
+Accept: application/json
+
+###
