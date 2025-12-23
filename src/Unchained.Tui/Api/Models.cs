@@ -99,3 +99,24 @@ public class ApiResult<T>
         StatusCode = status
     };
 }
+
+public record LoginResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; init; }
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; init; } = string.Empty;
+
+    [JsonPropertyName("sessionExpiresAt")]
+    public DateTime SessionExpiresAt { get; init; }
+
+    [JsonPropertyName("hasTokens")]
+    public bool HasTokens { get; init; }
+}
+
+public record LogoutResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; init; }
+}

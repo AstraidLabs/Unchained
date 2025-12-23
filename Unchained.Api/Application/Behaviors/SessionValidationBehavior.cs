@@ -1,5 +1,6 @@
 ﻿using Unchained.Services.Session;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Unchained.Application.Behaviors
 {
@@ -9,14 +10,17 @@ namespace Unchained.Application.Behaviors
         private readonly ISessionManager _sessionManager;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<SessionValidationBehavior<TRequest, TResponse>> _logger;
+        private readonly IOptions<Configuration.AuthOptions> _authOptions;
 
         public SessionValidationBehavior(
             ISessionManager sessionManager,
             IHttpContextAccessor httpContextAccessor,
+            IOptions<Configuration.AuthOptions> authOptions,
             ILogger<SessionValidationBehavior<TRequest, TResponse>> logger)
         {
             _sessionManager = sessionManager;
             _httpContextAccessor = httpContextAccessor;
+            _authOptions = authOptions;
             _logger = logger;
         }
 
@@ -70,7 +74,8 @@ namespace Unchained.Application.Behaviors
         private string? GetSessionId(HttpContext context)
         {
             // Cookie nebo Authorization header
-            if (context.Request.Cookies.TryGetValue("SessionId", out var cookieValue))
+            var cookieName = _authOptions.Value.CookieName;
+            if (context.Request.Cookies.TryGetValue(cookieName, out var cookieValue))
                 return cookieValue;
 
             var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
@@ -81,4 +86,3 @@ namespace Unchained.Application.Behaviors
         }
     }
 }
-

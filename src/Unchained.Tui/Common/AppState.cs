@@ -56,15 +56,7 @@ public class UnchainedOptions
 
 public class AuthOptions
 {
-    public AuthMode Mode { get; set; } = AuthMode.None;
-    public string ApiKeyHeader { get; set; } = "X-Api-Key";
-    public string ApiKey { get; set; } = string.Empty;
-}
-
-public enum AuthMode
-{
-    None,
-    ApiKey
+    public string CookieName { get; set; } = "Unchained.Session";
 }
 
 public class SignalROptions

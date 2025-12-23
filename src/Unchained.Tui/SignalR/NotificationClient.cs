@@ -10,15 +10,16 @@ public class NotificationClient : IAsyncDisposable
     private readonly AppState _state;
     private readonly ILogger<NotificationClient> _logger;
     private HubConnection? _connection;
-    private readonly CookieContainer _cookies = new();
+    private readonly CookieContainer _cookies;
 
     public event Action<NotificationEvent>? EventReceived;
     public event Action<NotificationStatus>? StatusChanged;
 
-    public NotificationClient(AppState state, ILogger<NotificationClient> logger)
+    public NotificationClient(AppState state, ILogger<NotificationClient> logger, CookieContainer cookies)
     {
         _state = state;
         _logger = logger;
+        _cookies = cookies;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -33,11 +34,6 @@ public class NotificationClient : IAsyncDisposable
             .WithUrl(url, options =>
             {
                 options.Cookies = _cookies;
-                if (_state.Options.Auth.Mode == AuthMode.ApiKey && !string.IsNullOrWhiteSpace(_state.Options.Auth.ApiKey))
-                {
-                    var header = string.IsNullOrWhiteSpace(_state.Options.Auth.ApiKeyHeader) ? "X-Api-Key" : _state.Options.Auth.ApiKeyHeader;
-                    options.Headers.Add(header, _state.Options.Auth.ApiKey);
-                }
             })
             .WithAutomaticReconnect()
             .Build();
