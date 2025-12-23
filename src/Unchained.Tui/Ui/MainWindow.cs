@@ -405,8 +405,20 @@ public class MainWindow : Window
     private async Task RunWithProgressAsync(string title, Func<CancellationToken, Task> work)
     {
         var cts = CancellationHelper.CreateLinked(TimeSpan.FromSeconds(Math.Max(5, _state.Options.Http.TimeoutSeconds)));
-        var progress = new ProgressBar { X = 1, Y = 1, Width = Dim.Fill() - 2, Height = 1 };
-        var label = new Label("Press ESC to cancel") { X = 1, Y = 3 };
+        var (dialogWidth, dialogHeight) = TerminalDimensions.BoundToDriver(60, 8);
+        var progress = new ProgressBar
+        {
+            X = 1,
+            Y = 1,
+            Width = Dim.Max(Dim.Sized(1), Dim.Fill() - 2),
+            Height = 1
+        };
+        var label = new Label("Press ESC to cancel")
+        {
+            X = 1,
+            Y = 3,
+            Width = Dim.Max(Dim.Sized(1), Dim.Fill() - 2)
+        };
 
         var cancel = new Button("Cancel") { X = Pos.Center(), Y = 5 };
         cancel.Clicked += () =>
@@ -415,7 +427,7 @@ public class MainWindow : Window
             Application.RequestStop();
         };
 
-        var dialog = new Dialog(title, 60, 8, cancel)
+        var dialog = new Dialog(title, dialogWidth, dialogHeight, cancel)
         {
             ColorScheme = Colors.Dialog
         };

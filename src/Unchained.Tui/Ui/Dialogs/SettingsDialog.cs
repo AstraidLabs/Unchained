@@ -10,14 +10,20 @@ public class SettingsDialog : Dialog
     private readonly CheckBox _signalREnabled;
     private readonly TextField _hubPath;
 
-    public SettingsDialog(UnchainedOptions options) : base("Settings", 70, 20)
+    public SettingsDialog(UnchainedOptions options)
+        : this(options, TerminalDimensions.BoundToDriver(70, 20))
+    {
+    }
+
+    private SettingsDialog(UnchainedOptions options, (int Width, int Height) dialogSize)
+        : base("Settings", dialogSize.Width, dialogSize.Height)
     {
         var baseLabel = new Label("Base Url:") { X = 1, Y = 1 };
         _baseUrl = new TextField(options.BaseUrl ?? string.Empty)
         {
             X = 1,
             Y = Pos.Bottom(baseLabel),
-            Width = Dim.Fill() - 2
+            Width = Dim.Max(Dim.Sized(1), Dim.Fill() - 2)
         };
 
         var profileLabel = new Label("Profile:") { X = 1, Y = Pos.Bottom(_baseUrl) + 1 };
@@ -43,7 +49,7 @@ public class SettingsDialog : Dialog
         {
             X = 1,
             Y = Pos.Bottom(hubLabel),
-            Width = Dim.Fill() - 2
+            Width = Dim.Max(Dim.Sized(1), Dim.Fill() - 2)
         };
 
         Add(baseLabel, _baseUrl, profileLabel, _profile, signalRLabel, _signalREnabled, hubLabel, _hubPath);

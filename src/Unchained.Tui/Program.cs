@@ -13,6 +13,9 @@ namespace Unchained.Tui;
 
 public static class Program
 {
+    private const int MinTerminalWidth = 80;
+    private const int MinTerminalHeight = 24;
+
     public static async Task<int> Main(string[] args)
     {
         var builder = Host.CreateDefaultBuilder(args)
@@ -68,6 +71,14 @@ public static class Program
         host.Services.GetRequiredService<AppState>().Load(options);
 
         Application.Init();
+        if (!TerminalDimensions.EnsureMinimumSize(MinTerminalWidth, MinTerminalHeight, out var message))
+        {
+            Application.Shutdown();
+            Console.Error.WriteLine(message);
+            await host.StopAsync();
+            return 1;
+        }
+
         var top = Application.Top;
         var controller = host.Services.GetRequiredService<AppController>();
         controller.Start(top);
