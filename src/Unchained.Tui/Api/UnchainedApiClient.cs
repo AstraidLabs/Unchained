@@ -12,6 +12,8 @@ public class UnchainedApiClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<UnchainedApiClient> _logger;
     private readonly AppState _state;
+    private readonly CookieContainer _cookieContainer;
+    private readonly object _cookieSync = new();
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -19,13 +21,45 @@ public class UnchainedApiClient
         PropertyNameCaseInsensitive = true
     };
 
-    public UnchainedApiClient(HttpClient httpClient, ILogger<UnchainedApiClient> logger, AppState state)
+    public event Action? Unauthorized;
+
+    public UnchainedApiClient(HttpClient httpClient, ILogger<UnchainedApiClient> logger, AppState state, CookieContainer cookieContainer)
     {
         _httpClient = httpClient;
         _logger = logger;
         _state = state;
+        _cookieContainer = cookieContainer;
         ApplyHttpClientOptions(state.Options);
         _state.Changed += ApplyHttpClientOptions;
+    }
+
+    public Task<ApiResult<LoginResponse>> LoginAsync(string username, string password, CancellationToken cancellationToken)
+        => SendAsync<LoginResponse>(HttpMethod.Post, "/auth/login", new
+        {
+            username,
+            password
+        }, cancellationToken, allowRetry: false);
+
+    public Task<ApiResult<LogoutResponse>> LogoutAsync(CancellationToken cancellationToken)
+        => SendAsync<LogoutResponse>(HttpMethod.Post, "/auth/logout", null, cancellationToken, allowRetry: false);
+
+    public void ResetSession()
+    {
+        lock (_cookieSync)
+        {
+            if (_httpClient.BaseAddress is Uri baseUri)
+            {
+                var cookies = _cookieContainer.GetCookies(baseUri);
+                foreach (Cookie cookie in cookies)
+                {
+                    var expired = new Cookie(cookie.Name, string.Empty, cookie.Path, cookie.Domain)
+                    {
+                        Expires = DateTime.Now.AddDays(-1)
+                    };
+                    _cookieContainer.Add(expired);
+                }
+            }
+        }
     }
 
     public Task<ApiResult<IReadOnlyList<ChannelDto>>> GetChannelsAsync(CancellationToken cancellationToken)
@@ -77,12 +111,6 @@ public class UnchainedApiClient
 
     private void ApplyAuth(HttpRequestMessage request)
     {
-        if (_state.Options.Auth.Mode == AuthMode.ApiKey && !string.IsNullOrWhiteSpace(_state.Options.Auth.ApiKey))
-        {
-            var header = string.IsNullOrWhiteSpace(_state.Options.Auth.ApiKeyHeader) ? "X-Api-Key" : _state.Options.Auth.ApiKeyHeader;
-            request.Headers.Remove(header);
-            request.Headers.Add(header, _state.Options.Auth.ApiKey);
-        }
     }
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpMethod method, string path, object? content, CancellationToken cancellationToken, bool allowRetry)
@@ -108,6 +136,11 @@ public class UnchainedApiClient
                         return ApiResult<T>.FromMessage("Empty response", response.StatusCode);
                     }
                     return ApiResult<T>.FromData(data, response.StatusCode);
+                }
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    HandleUnauthorized();
                 }
 
                 return ApiResult<T>.FromError(await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false), response.StatusCode);
@@ -141,6 +174,11 @@ public class UnchainedApiClient
                     return ApiResult<string>.FromData(content, response.StatusCode);
                 }
 
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    HandleUnauthorized();
+                }
+
                 return ApiResult<string>.FromError(await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false), response.StatusCode);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && i + 1 < attempts)
@@ -154,6 +192,12 @@ public class UnchainedApiClient
         }
 
         return ApiResult<string>.FromMessage("Request failed", null);
+    }
+
+    private void HandleUnauthorized()
+    {
+        ResetSession();
+        Unauthorized?.Invoke();
     }
 
     private async Task<ApiError> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)

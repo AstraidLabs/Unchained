@@ -37,8 +37,11 @@ public static class Program
             .ConfigureServices((context, services) =>
             {
                 services.AddSingleton<AppState>();
+                services.AddSingleton<CookieContainer>();
                 services.AddSingleton<NotificationClient>();
                 services.AddSingleton<MainWindow>();
+                services.AddSingleton<LoginScreen>();
+                services.AddSingleton<AppController>();
                 services.AddHttpClient<UnchainedApiClient>((sp, client) =>
                     {
                         var state = sp.GetRequiredService<AppState>().Options;
@@ -49,11 +52,11 @@ public static class Program
                             client.BaseAddress = baseUri;
                         }
                     })
-                    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                    .ConfigurePrimaryHttpMessageHandler(sp => new HttpClientHandler
                     {
                         AutomaticDecompression = DecompressionMethods.All,
                         UseCookies = true,
-                        CookieContainer = new CookieContainer()
+                        CookieContainer = sp.GetRequiredService<CookieContainer>()
                     });
             });
 
@@ -66,8 +69,8 @@ public static class Program
 
         Application.Init();
         var top = Application.Top;
-        var mainWindow = host.Services.GetRequiredService<MainWindow>();
-        top.Add(mainWindow);
+        var controller = host.Services.GetRequiredService<AppController>();
+        controller.Start(top);
 
         Application.Run();
         Application.Shutdown();

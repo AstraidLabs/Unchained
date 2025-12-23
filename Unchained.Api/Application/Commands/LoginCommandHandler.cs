@@ -57,10 +57,11 @@ namespace Unchained.Application.Commands
                 var sessionId = await _sessionManager.CreateSessionAsync(
                     createSessionRequest, request.IpAddress, request.UserAgent);
 
-                // 3. Načti a ulož tokeny
-                var tokens = await _tokenStorage.LoadTokensAsync(sessionId);
+                // 3. Načti a ulož tokeny (přes session storage)
+                var tokens = await _tokenStorage.LoadTokensAsync();
                 if (tokens?.IsValid == true)
                 {
+                    await _tokenStorage.SaveTokensAsync(sessionId, tokens);
                     await _sessionManager.RefreshSessionTokensAsync(sessionId, tokens);
                 }
 
@@ -95,4 +96,3 @@ namespace Unchained.Application.Commands
         }
     }
 }
-

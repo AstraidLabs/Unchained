@@ -29,6 +29,9 @@ public class MainWindow : Window
     private DateTimeOffset? _lastRefresh;
     private bool _notificationsVisible;
 
+    public event Action? LogoutRequested;
+    public event Action? Unauthorized;
+
     public MainWindow(UnchainedApiClient api, AppState state, NotificationClient notificationClient, ILogger<MainWindow> logger) : base("Unchained Gateway TUI")
     {
         _api = api;
@@ -61,8 +64,12 @@ public class MainWindow : Window
         Add(_statusBar);
 
         _state.Changed += _ => UpdateStatusLine();
-        _ = AutoRefreshAsync();
-        _ = EnsureNotificationsAsync();
+    }
+
+    public async Task OnSessionStartedAsync()
+    {
+        await AutoRefreshAsync();
+        await EnsureNotificationsAsync();
     }
 
     private void BuildLayout()
@@ -110,6 +117,7 @@ public class MainWindow : Window
             new("_Save M3U", "", async () => await SaveM3uAsync()),
             new("_Save XMLTV", "", async () => await SaveXmlTvAsync()),
             new("_Export Channels JSON", "", async () => await ExportChannelsAsync()),
+            new("_Logout", "", () => LogoutRequested?.Invoke()),
             new("_Quit", "", () => Application.RequestStop())
         });
 
@@ -189,6 +197,12 @@ public class MainWindow : Window
             LogInfo($"Notification: {evt.Name} {evt.Content}");
         };
         _notificationClient.StatusChanged += status => LogInfo($"SignalR status: {status}");
+
+        _api.Unauthorized += () =>
+        {
+            Unauthorized?.Invoke();
+            LogInfo("Session expired. Returning to login.");
+        };
     }
 
     private async Task AutoRefreshAsync()
@@ -446,6 +460,10 @@ public class MainWindow : Window
     {
         var detail = error?.Detail ?? fallback ?? message;
         var caption = error?.Title ?? message;
+        if (error?.Status == HttpStatusCode.Unauthorized)
+        {
+            Unauthorized?.Invoke();
+        }
         LogError(detail, null, error);
         Application.MainLoop.Invoke(() => MessageBox.ErrorQuery(caption, detail, "OK"));
     }

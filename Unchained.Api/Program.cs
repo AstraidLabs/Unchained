@@ -135,6 +135,8 @@ builder.Services.Configure<TokenStorageOptions>(
     builder.Configuration.GetSection(TokenStorageOptions.SectionName));
 builder.Services.Configure<Unchained.Configuration.SessionOptions>(
     builder.Configuration.GetSection(Unchained.Configuration.SessionOptions.SectionName));
+builder.Services.Configure<AuthOptions>(
+    builder.Configuration.GetSection(AuthOptions.SectionName));
 builder.Services.Configure<CorsOptions>(
     builder.Configuration.GetSection(CorsOptions.SectionName));
 builder.Services.Configure<RateLimitOptions>(
@@ -147,6 +149,7 @@ builder.Services.Configure<GatewayOptions>(
 // Validate configuration
 builder.Services.AddSingleton<IValidateOptions<Unchained.Configuration.SessionOptions>, ValidateSessionOptions>();
 builder.Services.AddSingleton<IValidateOptions<TokenStorageOptions>, ValidateTokenStorageOptions>();
+builder.Services.AddSingleton<IValidateOptions<AuthOptions>, ValidateAuthOptions>();
 
 // Configuration service
 builder.Services.AddSingleton<IConfigurationService, ConfigurationService>();
@@ -285,6 +288,7 @@ if (corsOptions?.AllowedOrigins?.Length > 0)
 app.UseMiddleware<UserRateLimitingMiddleware>();
 app.UseRateLimiter();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+app.UseMiddleware<SessionValidationMiddleware>();
 app.UseOutputCache();
 
 
@@ -388,6 +392,22 @@ public class ValidateSessionOptions : IValidateOptions<Unchained.Configuration.S
 public class ValidateTokenStorageOptions : IValidateOptions<TokenStorageOptions>
 {
     public ValidateOptionsResult Validate(string? name, TokenStorageOptions options)
+    {
+        try
+        {
+            options.Validate();
+            return ValidateOptionsResult.Success;
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidateOptionsResult.Fail(ex.Message);
+        }
+    }
+}
+
+public class ValidateAuthOptions : IValidateOptions<AuthOptions>
+{
+    public ValidateOptionsResult Validate(string? name, AuthOptions options)
     {
         try
         {

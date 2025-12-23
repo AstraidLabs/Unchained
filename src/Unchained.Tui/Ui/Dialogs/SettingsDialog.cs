@@ -7,9 +7,6 @@ public class SettingsDialog : Dialog
 {
     private readonly TextField _baseUrl;
     private readonly ComboBox _profile;
-    private readonly ComboBox _authMode;
-    private readonly TextField _apiKeyHeader;
-    private readonly TextField _apiKeyValue;
     private readonly CheckBox _signalREnabled;
     private readonly TextField _hubPath;
 
@@ -34,35 +31,7 @@ public class SettingsDialog : Dialog
         };
         _profile.SetSource(new[] { "generic", "kodi", "tvheadend", "jellyfin" });
 
-        var authLabel = new Label("Auth Mode:") { X = 1, Y = Pos.Bottom(_profile) + 1 };
-        _authMode = new ComboBox
-        {
-            X = 1,
-            Y = Pos.Bottom(authLabel),
-            Width = 20,
-            ReadOnly = true,
-            Text = options.Auth.Mode.ToString()
-        };
-        _authMode.SetSource(new[] { AuthMode.None.ToString(), AuthMode.ApiKey.ToString() });
-
-        var apiHeaderLabel = new Label("ApiKey Header:") { X = 1, Y = Pos.Bottom(_authMode) + 1 };
-        _apiKeyHeader = new TextField(options.Auth.ApiKeyHeader ?? "X-Api-Key")
-        {
-            X = 1,
-            Y = Pos.Bottom(apiHeaderLabel),
-            Width = 30
-        };
-
-        var apiKeyLabel = new Label("ApiKey:") { X = 1, Y = Pos.Bottom(_apiKeyHeader) + 1 };
-        _apiKeyValue = new TextField(options.Auth.ApiKey ?? string.Empty)
-        {
-            X = 1,
-            Y = Pos.Bottom(apiKeyLabel),
-            Width = Dim.Fill() - 2,
-            Secret = true
-        };
-
-        var signalRLabel = new Label("SignalR:") { X = 1, Y = Pos.Bottom(_apiKeyValue) + 1 };
+        var signalRLabel = new Label("SignalR:") { X = 1, Y = Pos.Bottom(_profile) + 1 };
         _signalREnabled = new CheckBox("Enable notifications", options.SignalR.Enabled)
         {
             X = 1,
@@ -77,7 +46,7 @@ public class SettingsDialog : Dialog
             Width = Dim.Fill() - 2
         };
 
-        Add(baseLabel, _baseUrl, profileLabel, _profile, authLabel, _authMode, apiHeaderLabel, _apiKeyHeader, apiKeyLabel, _apiKeyValue, signalRLabel, _signalREnabled, hubLabel, _hubPath);
+        Add(baseLabel, _baseUrl, profileLabel, _profile, signalRLabel, _signalREnabled, hubLabel, _hubPath);
 
         var ok = new Button("OK") { IsDefault = true };
         ok.Clicked += () => Application.RequestStop();
@@ -99,12 +68,7 @@ public class SettingsDialog : Dialog
         {
             BaseUrl = _baseUrl.Text.ToString() ?? original.BaseUrl,
             Profile = _profile.Text.ToString() ?? original.Profile,
-            Auth = new AuthOptions
-            {
-                Mode = Enum.TryParse<AuthMode>(_authMode.Text.ToString(), out var mode) ? mode : original.Auth.Mode,
-                ApiKeyHeader = _apiKeyHeader.Text.ToString() ?? original.Auth.ApiKeyHeader,
-                ApiKey = _apiKeyValue.Text.ToString() ?? original.Auth.ApiKey
-            },
+            Auth = new AuthOptions { CookieName = original.Auth.CookieName },
             SignalR = new SignalROptions
             {
                 Enabled = _signalREnabled.Checked,

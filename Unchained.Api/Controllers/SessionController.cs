@@ -6,6 +6,8 @@ using Unchained.Services.Session;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Unchained.Extensions;
+using Microsoft.Extensions.Options;
+using Unchained.Configuration;
 
 namespace Unchained.Controllers;
 
@@ -20,11 +22,16 @@ public class SessionController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly ILogger<SessionController> _logger;
+    private readonly IOptions<AuthOptions> _authOptions;
 
-    public SessionController(IMediator mediator, ILogger<SessionController> logger)
+    public SessionController(
+        IMediator mediator,
+        ILogger<SessionController> logger,
+        IOptions<AuthOptions> authOptions)
     {
         _mediator = mediator;
         _logger = logger;
+        _authOptions = authOptions;
     }
 
 
@@ -36,7 +43,7 @@ public class SessionController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
     public async Task<IActionResult> GetCurrentSession()
     {
-        var sessionId = SessionCookieHelper.GetSessionId(Request);
+        var sessionId = SessionCookieHelper.GetSessionId(Request, _authOptions.Value.CookieName);
         if (string.IsNullOrEmpty(sessionId))
         {
             return Unauthorized(ApiResponse<string>.ErrorResult("No active session"));
@@ -47,7 +54,7 @@ public class SessionController : ControllerBase
 
         if (!result.Success)
         {
-            SessionCookieHelper.RemoveSessionCookie(Response);
+            SessionCookieHelper.RemoveSessionCookie(Response, _authOptions.Value.CookieName);
             return Unauthorized(result);
         }
 
@@ -62,7 +69,7 @@ public class SessionController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
     public async Task<IActionResult> GetUserSessions()
     {
-        var currentSessionId = SessionCookieHelper.GetSessionId(Request);
+        var currentSessionId = SessionCookieHelper.GetSessionId(Request, _authOptions.Value.CookieName);
         if (string.IsNullOrEmpty(currentSessionId))
         {
             return Unauthorized(ApiResponse<string>.ErrorResult("Authentication required"));
@@ -89,7 +96,7 @@ public class SessionController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<string>), 403)]
     public async Task<IActionResult> RevokeSession(string sessionId)
     {
-        var currentSessionId = SessionCookieHelper.GetSessionId(Request);
+        var currentSessionId = SessionCookieHelper.GetSessionId(Request, _authOptions.Value.CookieName);
         if (string.IsNullOrEmpty(currentSessionId))
         {
             return Unauthorized(ApiResponse<string>.ErrorResult("Authentication required"));
@@ -125,7 +132,7 @@ public class SessionController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
     public async Task<IActionResult> LogoutAllOtherSessions()
     {
-        var currentSessionId = SessionCookieHelper.GetSessionId(Request);
+        var currentSessionId = SessionCookieHelper.GetSessionId(Request, _authOptions.Value.CookieName);
         if (string.IsNullOrEmpty(currentSessionId))
         {
             return Unauthorized(ApiResponse<string>.ErrorResult("Authentication required"));

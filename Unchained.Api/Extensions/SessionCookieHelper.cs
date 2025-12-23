@@ -10,10 +10,10 @@ public static class SessionCookieHelper
     /// <summary>
     /// Gets the session id from the request cookie or Authorization header
     /// </summary>
-    public static string? GetSessionId(HttpRequest request)
+    public static string? GetSessionId(HttpRequest request, string cookieName)
     {
         // Try cookie first
-        if (request.Cookies.TryGetValue("SessionId", out var cookieValue))
+        if (request.Cookies.TryGetValue(cookieName, out var cookieValue))
         {
             return cookieValue;
         }
@@ -31,25 +31,25 @@ public static class SessionCookieHelper
     /// <summary>
     /// Sets the session cookie on the response
     /// </summary>
-    public static void SetSessionCookie(HttpResponse response, string sessionId, bool secure)
+    public static void SetSessionCookie(HttpResponse response, string sessionId, string cookieName, bool secure, SameSiteMode sameSite, int ttlMinutes)
     {
         var cookieOptions = new CookieOptions
         {
             HttpOnly = true,
             Secure = secure,
-            SameSite = SameSiteMode.Strict,
+            SameSite = sameSite,
             Path = "/",
-            Expires = DateTimeOffset.UtcNow.AddDays(30)
+            Expires = DateTimeOffset.UtcNow.AddMinutes(ttlMinutes)
         };
 
-        response.Cookies.Append("SessionId", sessionId, cookieOptions);
+        response.Cookies.Append(cookieName, sessionId, cookieOptions);
     }
 
     /// <summary>
     /// Removes the session cookie from the response
     /// </summary>
-    public static void RemoveSessionCookie(HttpResponse response)
+    public static void RemoveSessionCookie(HttpResponse response, string cookieName)
     {
-        response.Cookies.Delete("SessionId");
+        response.Cookies.Delete(cookieName);
     }
 }
