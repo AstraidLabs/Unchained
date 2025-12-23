@@ -8,12 +8,8 @@ public static class SaveFileDialogExtensions
     {
         var dialog = new SaveDialog(title, "Select destination")
         {
-            FileName = defaultName,
             DirectoryPath = Environment.CurrentDirectory
         };
-
-        dialog.CancelButton.Text = "Cancel";
-        dialog.SaveButton.Text = "Save";
 
         Application.Run(dialog);
         if (dialog.Canceled)

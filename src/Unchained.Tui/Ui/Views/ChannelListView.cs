@@ -35,7 +35,7 @@ public class ChannelListView : FrameView
             Width = Dim.Fill()
         };
 
-        _search.Changed += (_) => ApplyFilter();
+        _search.TextChanged += (_) => ApplyFilter();
         _search.KeyPress += e =>
         {
             if (e.KeyEvent.Key == (Key.R | Key.CtrlMask))
