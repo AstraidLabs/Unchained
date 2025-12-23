@@ -129,7 +129,7 @@ public class LoginScreen : Window
             }
 
             SetStatus("Login successful");
-            LoginSucceeded?.Invoke();
+            Application.MainLoop.Invoke(() => LoginSucceeded?.Invoke());
         }
         catch (Exception ex)
         {
