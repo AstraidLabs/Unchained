@@ -23,7 +23,7 @@ public class SettingsDialog : Dialog
         {
             X = 1,
             Y = Pos.Bottom(baseLabel),
-            Width = Dim.Max(new Dim[] { Dim.Sized(1), Dim.Fill() - 2 })
+            Width = Dim.Fill() - 2
         };
 
         var profileLabel = new Label("Profile:") { X = 1, Y = Pos.Bottom(_baseUrl) + 1 };
@@ -49,7 +49,7 @@ public class SettingsDialog : Dialog
         {
             X = 1,
             Y = Pos.Bottom(hubLabel),
-            Width = Dim.Max(new Dim[] { Dim.Sized(1), Dim.Fill() - 2 })
+            Width = Dim.Fill() - 2
         };
 
         Add(baseLabel, _baseUrl, profileLabel, _profile, signalRLabel, _signalREnabled, hubLabel, _hubPath);
