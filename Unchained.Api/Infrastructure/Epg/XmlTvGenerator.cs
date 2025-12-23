@@ -68,7 +68,7 @@ public class XmlTvGenerator
     }
 
     private static string ResolveChannelId(Channel channel) =>
-        string.IsNullOrWhiteSpace(channel.TvgId) ? channel.Id.ToString() : channel.TvgId!;
+        string.IsNullOrWhiteSpace(channel.TvgId) ? channel.Id.Value.ToString() : channel.TvgId!;
 
     private static string FormatTimestamp(DateTimeOffset value)
     {

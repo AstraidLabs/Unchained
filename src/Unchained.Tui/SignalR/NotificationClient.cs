@@ -83,7 +83,7 @@ public class NotificationClient : IAsyncDisposable
 
     private Uri BuildHubUrl()
     {
-        var baseUrl = _state.Options.BaseUrl ?? string.Empty;
+        var baseUrl = AppState.NormalizeBaseUrl(_state.Options.BaseUrl);
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {
             throw new InvalidOperationException("BaseUrl is invalid for SignalR");

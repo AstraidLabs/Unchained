@@ -9,7 +9,7 @@ namespace Unchained.Tui.Api;
 
 public class UnchainedApiClient
 {
-    private readonly IHttpClientFactory _clientFactory;
+    private readonly HttpClient _httpClient;
     private readonly ILogger<UnchainedApiClient> _logger;
     private readonly AppState _state;
 
@@ -19,11 +19,13 @@ public class UnchainedApiClient
         PropertyNameCaseInsensitive = true
     };
 
-    public UnchainedApiClient(IHttpClientFactory clientFactory, ILogger<UnchainedApiClient> logger, AppState state)
+    public UnchainedApiClient(HttpClient httpClient, ILogger<UnchainedApiClient> logger, AppState state)
     {
-        _clientFactory = clientFactory;
+        _httpClient = httpClient;
         _logger = logger;
         _state = state;
+        ApplyHttpClientOptions(state.Options);
+        _state.Changed += ApplyHttpClientOptions;
     }
 
     public Task<ApiResult<IReadOnlyList<ChannelDto>>> GetChannelsAsync(CancellationToken cancellationToken)
@@ -47,37 +49,30 @@ public class UnchainedApiClient
     public Task<ApiResult<string>> PostAdminAsync(string path, CancellationToken cancellationToken)
         => SendRawAsync(HttpMethod.Post, path, cancellationToken, allowRetry: false);
 
-    private HttpClient CreateClient()
-    {
-        var timeout = TimeSpan.FromSeconds(Math.Max(5, _state.Options.Http.TimeoutSeconds));
-        var client = _clientFactory.CreateClient("unchained");
-        client.Timeout = timeout;
-
-        if (Uri.TryCreate(_state.Options.BaseUrl, UriKind.Absolute, out var baseUri))
-        {
-            client.BaseAddress = baseUri;
-        }
-        else
-        {
-            throw new InvalidOperationException("BaseUrl is not configured or invalid.");
-        }
-
-        return client;
-    }
-
-    private Uri BuildUri(HttpClient client, string path)
+    private Uri BuildUri(string path)
     {
         if (Uri.TryCreate(path, UriKind.Absolute, out var absolute))
         {
             return absolute;
         }
 
-        if (client.BaseAddress == null)
+        var normalized = AppState.NormalizeBaseUrl(_state.Options.BaseUrl);
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var baseUri))
         {
             throw new InvalidOperationException("BaseUrl missing");
         }
 
-        return new Uri(client.BaseAddress, path.TrimStart('/'));
+        return new Uri(baseUri, path.TrimStart('/'));
+    }
+
+    private void ApplyHttpClientOptions(UnchainedOptions options)
+    {
+        _httpClient.Timeout = TimeSpan.FromSeconds(Math.Max(5, options.Http.TimeoutSeconds));
+        var normalized = AppState.NormalizeBaseUrl(options.BaseUrl);
+        if (Uri.TryCreate(normalized, UriKind.Absolute, out var baseUri))
+        {
+            _httpClient.BaseAddress = baseUri;
+        }
     }
 
     private void ApplyAuth(HttpRequestMessage request)
@@ -97,15 +92,14 @@ public class UnchainedApiClient
         {
             try
             {
-                using var client = CreateClient();
-                using var request = new HttpRequestMessage(method, BuildUri(client, path));
+                using var request = new HttpRequestMessage(method, BuildUri(path));
                 ApplyAuth(request);
                 if (content != null)
                 {
                     request.Content = JsonContent.Create(content);
                 }
 
-                using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
                     var data = await response.Content.ReadFromJsonAsync<T>(SerializerOptions, cancellationToken).ConfigureAwait(false);
@@ -138,10 +132,9 @@ public class UnchainedApiClient
         {
             try
             {
-                using var client = CreateClient();
-                using var request = new HttpRequestMessage(method, BuildUri(client, path));
+                using var request = new HttpRequestMessage(method, BuildUri(path));
                 ApplyAuth(request);
-                using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {

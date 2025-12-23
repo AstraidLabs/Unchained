@@ -27,36 +27,41 @@ Rychlé starty, přehledné rozhraní a možnost libovolného rozšíření – 
 ## Spuštění v režimu vývoje
 ```bash
 # obnova závislostí
- dotnet restore Unchained.sln
+dotnet restore Unchained.sln
 
-# spuštění aplikace
- dotnet run --project Unchained.Api/Unchained.csproj
+# spuštění gateway serveru
+dotnet run --project Unchained.Api/Unchained.csproj
+
+# spuštění TUI klienta (nové okno/terminál)
+dotnet run --project src/Unchained.Tui/Unchained.Tui.csproj
 ```
-Aplikace standardně poslouchá na portu `5000` (HTTP) a `5001` (HTTPS).
+Gateway poslouchá na `http://localhost:5000`. TUI se automaticky připojí na základní URL z `src/Unchained.Tui/appsettings.json`.
 
 ## Konfigurace
 Nastavení se provádí pomocí souborů `appsettings.json` (případně variant `Development`, `Production` atd.). Klíčové sekce:
-- `Unchained` – URL API, identifikace zařízení a další parametry
+- `Urls` – základní adresa Kestrel serveru (výchozí `http://localhost:5000`)
+- `Gateway` – nastavení veřejných endpointů (`Auth.Mode` = `None`/`ApiKey`, `Auth.ApiKeyHeader`, `Auth.ApiKey`, `PlaylistCacheSeconds`, `XmlTvCacheSeconds`)
+- `Unchained` – URL upstream API, identifikace zařízení a další parametry
 - `Session` – délka platnosti session, maximální počet přihlášení
 - `Cache` – expirace jednotlivých položek v paměťové cache
 - `RateLimit` – omezení počtu požadavků
 
-## Správa zařízení
-- `GET /magenta/devices` – vrátí seznam zařízení spojených s účtem.
-- `DELETE /magenta/devices/{id}` – odebere uvedené zařízení.
+Klient `src/Unchained.Tui/appsettings.json` obsahuje zrcadlové hodnoty:
+- `BaseUrl` – základní URL gateway (bez koncového `/`, přidá se automaticky)
+- `Profile` – profil playlistu (`generic`, `kodi`, `tvheadend`, `jellyfin`)
+- `Auth` – stejné nastavení ApiKey jako na serveru
+- `SignalR` – volitelné připojení k hubu (pokud je povoleno)
+
+## TUI klávesové zkratky
+- `F5` – načíst /channels
+- `F2` – uložit `playlist.m3u` dle profilu v konfiguraci
+- `F3` – uložit `epg.xml`
+- `Actions` menu – volání health checků, statusu a admin endpointů (404 na admin cestách se vypíše jen do logu)
+
+## Správa zařízení a upstream
+Původní endpoints `/magenta/*` jsou zachovány pro práci s upstreamem (např. `/magenta/devices`, `/magenta/stream/{id}`), ale TUI používá nové kořenové cesty (`/channels`, `/m3u`, `/xmltv`, `/status`, `/health/live`, `/health/ready`, `/admin/*`).
 
 V produkčním prostředí je nutné nastavit proměnnou `SESSION_ENCRYPTION_KEY` pro šifrování session tokenů. Pokud není nastavena, aplikace při startu vygeneruje klíč automaticky.
 
-## Konzolový klient
-Projekt obsahuje i ukázkovou aplikaci `Unchained.ConsoleClient`, která
-umožňuje ovládání API z příkazové řádky. Program nabízí jednoduché menu
-pro přihlášení, výpis kanálů, zobrazení EPG i spuštění nahrávání. Spustíte
-ho příkazem:
-
-```bash
-dotnet run --project Unchained.ConsoleClient/Unchained.ConsoleClient.csproj
-```
-
 ## Poznámky
-Projekt momentálně cílí na .NET 9.0, který může vyžadovat preview verzi SDK. Pokud SDK není dostupné, kompilace se nemusí podařit.
-
+Projekt cílí na .NET 9.0, který může vyžadovat preview verzi SDK. Pokud SDK není dostupné, kompilace se nemusí podařit.

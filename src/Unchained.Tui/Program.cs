@@ -39,9 +39,16 @@ public static class Program
                 services.AddSingleton<AppState>();
                 services.AddSingleton<NotificationClient>();
                 services.AddSingleton<MainWindow>();
-                services.AddTransient<UnchainedApiClient>();
-
-                services.AddHttpClient("unchained")
+                services.AddHttpClient<UnchainedApiClient>((sp, client) =>
+                    {
+                        var state = sp.GetRequiredService<AppState>().Options;
+                        client.Timeout = TimeSpan.FromSeconds(Math.Max(5, state.Http.TimeoutSeconds));
+                        var normalized = AppState.NormalizeBaseUrl(state.BaseUrl);
+                        if (Uri.TryCreate(normalized, UriKind.Absolute, out var baseUri))
+                        {
+                            client.BaseAddress = baseUri;
+                        }
+                    })
                     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
                     {
                         AutomaticDecompression = DecompressionMethods.All,
