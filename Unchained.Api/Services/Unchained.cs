@@ -9,7 +9,6 @@ using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Xml.Linq;
 
 namespace Unchained.Services
 {
@@ -367,9 +366,15 @@ namespace Unchained.Services
                     try
                     {
                         var ch = item.GetProperty("channel");
+                        var tvgId = ch.TryGetProperty("tvgId", out var tvgProp)
+                            ? tvgProp.GetString()
+                            : ch.TryGetProperty("epgId", out var epgProp)
+                                ? epgProp.GetString()
+                                : null;
                         result.Add(new ChannelDto
                         {
                             ChannelId = ch.GetProperty("channelId").GetInt32(),
+                            TvgId = tvgId ?? ch.GetProperty("channelId").GetInt32().ToString(),
                             Name = ch.GetProperty("name").GetString() ?? "",
                             LogoUrl = ch.TryGetProperty("logoUrl", out var logo) ? logo.GetString() ?? "" : "",
                             HasArchive = ch.TryGetProperty("hasArchive", out var archive) && archive.GetBoolean()
@@ -385,16 +390,24 @@ namespace Unchained.Services
             return result;
         }
 
-        public async Task<List<EpgItemDto>> GetEpgAsync(int channelId, DateTime? from = null, DateTime? to = null)
+        public async Task<List<EpgItemDto>> GetEpgAsync(int channelId, DateTimeOffset? from = null, DateTimeOffset? to = null, bool forceRefresh = false)
         {
-            var cacheKey = $"epg_{channelId}_{from?.Date:yyyyMMdd}_{to?.Date:yyyyMMdd}";
+            var now = DateTimeOffset.UtcNow;
+            from ??= now.AddDays(-2);
+            to ??= now.AddDays(1);
+            var cacheKey = $"epg_{channelId}_{from.Value.UtcDateTime.Date:yyyyMMdd}_{to.Value.UtcDateTime.Date:yyyyMMdd}";
 
             await InitializeAsync();
 
-            if (_cache.TryGetValue(cacheKey, out List<EpgItemDto>? cached))
+            if (!forceRefresh && _cache.TryGetValue(cacheKey, out List<EpgItemDto>? cached))
             {
                 _logger.LogDebug("Returning cached EPG for channel {ChannelId}", channelId);
                 return cached!;
+            }
+
+            if (forceRefresh)
+            {
+                _logger.LogDebug("Force refresh requested for EPG {ChannelId}", channelId);
             }
 
             var stopwatch = Stopwatch.StartNew();
@@ -403,12 +416,8 @@ namespace Unchained.Services
             {
                 await EnsureAuthenticatedAsync();
 
-                var now = DateTime.UtcNow;
-                from ??= now.AddDays(-2);
-                to ??= now.AddDays(1);
-
-                var startTime = from.Value.ToString("yyyy-MM-ddT00:00:00.000Z");
-                var endTime = to.Value.ToString("yyyy-MM-ddT23:59:59.000Z");
+                var startTime = from.Value.ToUniversalTime().ToString("yyyy-MM-ddT00:00:00.000Z");
+                var endTime = to.Value.ToUniversalTime().ToString("yyyy-MM-ddT23:59:59.000Z");
                 var filter = $"channel.id=={channelId} and startTime=ge={startTime} and endTime=le={endTime}";
                 var uri = $"{_options.BaseUrl}/{_options.ApiVersion}/television/epg?filter={Uri.EscapeDataString(filter)}&limit=1000&offset=0&lang=CZ";
 
@@ -419,7 +428,7 @@ namespace Unchained.Services
                 response.EnsureSuccessStatusCode();
 
                 var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-                var epg = ParseEpg(json);
+                var epg = ParseEpg(json, channelId);
 
                 var cacheExpiry = TimeSpan.FromMinutes(_cacheOptions.EpgExpirationMinutes);
                 _cache.Set(cacheKey, epg, cacheExpiry);
@@ -439,7 +448,7 @@ namespace Unchained.Services
             }
         }
 
-        private List<EpgItemDto> ParseEpg(JsonDocument json)
+        private List<EpgItemDto> ParseEpg(JsonDocument json, int channelId)
         {
             var result = new List<EpgItemDto>();
 
@@ -458,9 +467,10 @@ namespace Unchained.Services
                                 {
                                     Title = pr.GetProperty("title").GetString() ?? "",
                                     Description = pr.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "",
-                                    StartTime = DateTimeOffset.FromUnixTimeMilliseconds(prog.GetProperty("startTimeUTC").GetInt64()).UtcDateTime,
-                                    EndTime = DateTimeOffset.FromUnixTimeMilliseconds(prog.GetProperty("endTimeUTC").GetInt64()).UtcDateTime,
+                                    StartTime = DateTimeOffset.FromUnixTimeMilliseconds(prog.GetProperty("startTimeUTC").GetInt64()).ToOffset(TimeSpan.Zero),
+                                    EndTime = DateTimeOffset.FromUnixTimeMilliseconds(prog.GetProperty("endTimeUTC").GetInt64()).ToOffset(TimeSpan.Zero),
                                     Category = pr.TryGetProperty("programCategory", out var cat) && cat.TryGetProperty("desc", out var cdesc) ? cdesc.GetString() ?? "" : "",
+                                    ChannelId = channelId,
                                     ScheduleId = prog.GetProperty("scheduleId").GetInt64()
                                 });
                             }
@@ -733,73 +743,6 @@ namespace Unchained.Services
             {
                 _logger.LogError(ex, "Failed to delete device {DeviceId}", deviceId);
                 return false;
-            }
-        }
-
-        public async Task<string> GenerateM3UPlaylistAsync()
-        {
-            try
-            {
-                await InitializeAsync();
-                var channels = await GetChannelsAsync();
-                var sb = new StringBuilder("#EXTM3U\n");
-
-                foreach (var ch in channels)
-                {
-                    sb.Append($"#EXTINF:-1 tvg-id=\"{ch.ChannelId}\" tvg-name=\"{ch.Name}\"");
-
-                    if (ch.HasArchive)
-                        sb.Append($" catchup=\"default\" catchup-source=\"/magenta/catchup/{ch.ChannelId}/" + "${start}-${end}\" catchup-days=\"7\"");
-
-                    if (!string.IsNullOrEmpty(ch.LogoUrl))
-                        sb.Append($" tvg-logo=\"{ch.LogoUrl}\"");
-
-                    sb.Append($",{ch.Name}\n");
-                    sb.Append($"https://{_networkOptions.IpAddress}:3000/magenta/stream/{ch.ChannelId}\n");
-                }
-
-                var result = sb.ToString();
-                _logger.LogInformation("Generated M3U playlist with {ChannelCount} channels", channels.Count);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate M3U playlist");
-                throw;
-            }
-        }
-
-        public string GenerateXmlTv(List<EpgItemDto> epg, int channelId)
-        {
-            try
-            {
-                var doc = new XDocument(
-                    new XDeclaration("1.0", "UTF-8", null),
-                    new XElement("tv",
-                        new XElement("channel",
-                            new XAttribute("id", channelId),
-                            new XElement("display-name", $"Channel {channelId}")
-                        ),
-                        epg.Select(e => new XElement("programme",
-                            new XAttribute("start", e.StartTime.ToString("yyyyMMddHHmmss") + " +0000"),
-                            new XAttribute("stop", e.EndTime.ToString("yyyyMMddHHmmss") + " +0000"),
-                            new XAttribute("channel", channelId),
-                            new XElement("title", e.Title),
-                            new XElement("desc", e.Description ?? ""),
-                            new XElement("category", e.Category ?? ""),
-                            new XElement("scheduleId", e.ScheduleId.ToString())
-                        ))
-                    )
-                );
-
-                var result = doc.Declaration + doc.ToString();
-                _logger.LogInformation("Generated XMLTV for channel {ChannelId} with {EpgCount} programs", channelId, epg.Count);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate XMLTV for channel {ChannelId}", channelId);
-                throw;
             }
         }
 

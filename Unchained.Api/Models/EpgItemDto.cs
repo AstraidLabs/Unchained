@@ -12,10 +12,13 @@ public class EpgItemDto : IValidatableObject
     public string Description { get; set; } = string.Empty;
 
     [Required]
-    public DateTime StartTime { get; set; }
+    public DateTimeOffset StartTime { get; set; }
 
     [Required]
-    public DateTime EndTime { get; set; }
+    public DateTimeOffset EndTime { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "ChannelId must be greater than 0")]
+    public int ChannelId { get; set; }
 
     [StringLength(100, ErrorMessage = "Category cannot exceed 100 characters")]
     public string Category { get; set; } = string.Empty;
@@ -38,7 +41,7 @@ public class EpgItemDto : IValidatableObject
         }
 
         // Validace že čas není v budoucnosti více než 30 dní
-        if (StartTime > DateTime.UtcNow.AddDays(30))
+        if (StartTime > DateTimeOffset.UtcNow.AddDays(30))
         {
             results.Add(new ValidationResult(
                 "StartTime cannot be more than 30 days in the future",

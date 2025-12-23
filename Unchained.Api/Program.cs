@@ -28,6 +28,8 @@ using Unchained.Services.Middleware;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Mvc;
 using Spectre.Console;
+using Unchained.Infrastructure.Playlist;
+using Unchained.Infrastructure.Epg;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,6 +91,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ICacheService, CacheService>();
 builder.Services.AddSingleton<IInputSanitizer, InputSanitizer>();
 builder.Services.AddFfmpeg(builder.Configuration);
+builder.Services.AddSingleton<M3uGenerator>();
+builder.Services.AddSingleton<XmlTvGenerator>();
 
 // Network configuration and service
 builder.Services.Configure<NetworkOptions>(

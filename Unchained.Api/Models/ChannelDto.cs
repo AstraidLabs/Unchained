@@ -8,6 +8,9 @@ public class ChannelDto
     [Range(1, int.MaxValue, ErrorMessage = "ChannelId must be greater than 0")]
     public int ChannelId { get; set; }
 
+    [StringLength(200, ErrorMessage = "TvgId cannot exceed 200 characters")]
+    public string TvgId { get; set; } = string.Empty;
+
     [Required(ErrorMessage = "Name is required")]
     [StringLength(200, ErrorMessage = "Name cannot exceed 200 characters")]
     public string Name { get; set; } = string.Empty;

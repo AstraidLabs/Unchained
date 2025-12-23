@@ -27,7 +27,7 @@ public interface IUnchained
     /// <summary>
     /// Získání EPG pro kanál
     /// </summary>
-    Task<List<EpgItemDto>> GetEpgAsync(int channelId, DateTime? from = null, DateTime? to = null);
+    Task<List<EpgItemDto>> GetEpgAsync(int channelId, DateTimeOffset? from = null, DateTimeOffset? to = null, bool forceRefresh = false);
 
     /// <summary>
     /// Získání stream URL pro kanál
@@ -48,16 +48,6 @@ public interface IUnchained
     /// Smazání zařízení podle jeho ID
     /// </summary>
     Task<bool> DeleteDeviceAsync(string deviceId);
-
-    /// <summary>
-    /// Generování M3U playlistu
-    /// </summary>
-    Task<string> GenerateM3UPlaylistAsync();
-
-    /// <summary>
-    /// Generování XMLTV
-    /// </summary>
-    string GenerateXmlTv(List<EpgItemDto> epg, int channelId);
 
     /// <summary>
     /// Obnoví access token pomocí refresh tokenu

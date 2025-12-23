@@ -11,8 +11,8 @@ public interface IPClient
     Task<ApiResponse<AuthStatusDto>> GetAuthStatusAsync();
     Task<ApiResponse<List<ChannelDto>>> GetChannelsAsync(bool refresh = false);
     Task<ApiResponse<List<ChannelDto>>> GetChannelsBulkAsync(IEnumerable<int> channelIds);
-    Task<ApiResponse<List<EpgItemDto>>> GetEpgAsync(int channelId, DateTime? from = null, DateTime? to = null);
-    Task<ApiResponse<Dictionary<int, List<EpgItemDto>>>> GetEpgBulkAsync(IEnumerable<int> channelIds, DateTime? from = null, DateTime? to = null);
+    Task<ApiResponse<List<EpgItemDto>>> GetEpgAsync(int channelId, DateTimeOffset? from = null, DateTimeOffset? to = null, bool refresh = false);
+    Task<ApiResponse<Dictionary<int, List<EpgItemDto>>>> GetEpgBulkAsync(IEnumerable<int> channelIds, DateTimeOffset? from = null, DateTimeOffset? to = null, bool refresh = false);
     Task<ApiResponse<StreamUrlDto>> GetStreamUrlAsync(int channelId);
     Task<ApiResponse<Dictionary<int, string?>>> GetStreamUrlsBulkAsync(IEnumerable<int> channelIds);
     Task<ApiResponse<StreamUrlDto>> GetCatchupStreamAsync(long scheduleId);

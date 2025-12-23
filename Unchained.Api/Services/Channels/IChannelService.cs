@@ -1,9 +1,9 @@
 using Unchained.Models;
+using Unchained.Domain;
 
 namespace Unchained.Services.Channels;
 
 public interface IChannelService
 {
-    Task<List<ChannelDto>> GetChannelsAsync(bool forceRefresh = false);
-    Task<string> GenerateM3UPlaylistAsync();
+    Task<IReadOnlyCollection<Channel>> GetChannelsAsync(bool forceRefresh = false);
 }
