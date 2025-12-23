@@ -410,14 +410,14 @@ public class MainWindow : Window
         {
             X = 1,
             Y = 1,
-            Width = Dim.Max(Dim.Sized(1), Dim.Fill() - 2),
+            Width = Dim.Max(new Dim[] { Dim.Sized(1), Dim.Fill() - 2 }),
             Height = 1
         };
         var label = new Label("Press ESC to cancel")
         {
             X = 1,
             Y = 3,
-            Width = Dim.Max(Dim.Sized(1), Dim.Fill() - 2)
+            Width = Dim.Max(new Dim[] { Dim.Sized(1), Dim.Fill() - 2 })
         };
 
         var cancel = new Button("Cancel") { X = Pos.Center(), Y = 5 };
