@@ -22,7 +22,7 @@ public static class Program
                       .AddEnvironmentVariables(prefix: "UNCHAINED_TUI_");
                 try
                 {
-                    config.AddUserSecrets<Program>(optional: true);
+                    config.AddUserSecrets<HostBuilderMarker>(optional: true);
                 }
                 catch
                 {
@@ -68,4 +68,8 @@ public static class Program
         await host.StopAsync();
         return 0;
     }
+}
+
+internal sealed class HostBuilderMarker
+{
 }

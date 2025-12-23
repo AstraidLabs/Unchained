@@ -9,7 +9,7 @@ using Unchained.Tui.Ui.Views;
 
 namespace Unchained.Tui.Ui;
 
-public class MainWindow : Toplevel
+public class MainWindow : Window
 {
     private readonly UnchainedApiClient _api;
     private readonly AppState _state;
@@ -28,15 +28,13 @@ public class MainWindow : Toplevel
     private DateTimeOffset? _lastRefresh;
     private bool _notificationsVisible;
 
-    public MainWindow(UnchainedApiClient api, AppState state, NotificationClient notificationClient, ILogger<MainWindow> logger)
+    public MainWindow(UnchainedApiClient api, AppState state, NotificationClient notificationClient, ILogger<MainWindow> logger) : base("Unchained Gateway TUI")
     {
         _api = api;
         _state = state;
         _notificationClient = notificationClient;
         _logger = logger;
         _clipboard = new ClipboardHelper(LogInfo);
-
-        Title = "Unchained Gateway TUI";
 
         _channelsView = new ChannelListView { Width = 35, Height = Dim.Fill() };
         _detailsView = new ChannelDetailsView { X = Pos.Right(_channelsView) + 1, Width = Dim.Fill(), Height = Dim.Fill() };
@@ -70,6 +68,7 @@ public class MainWindow : Toplevel
     {
         var logHeight = 8;
         var statusHeight = 1;
+        var notificationsWidth = 35;
 
         var mainArea = new View
         {
@@ -82,7 +81,7 @@ public class MainWindow : Toplevel
         _channelsView.Height = Dim.Fill();
         _channelsView.Width = 35;
 
-        _notificationsView.X = Pos.AnchorEnd(_notificationsView.Width + 1);
+        _notificationsView.X = Pos.AnchorEnd(notificationsWidth + 1);
         _notificationsView.Height = Dim.Fill();
 
         _detailsView.X = Pos.Right(_channelsView) + 1;
@@ -354,7 +353,7 @@ public class MainWindow : Toplevel
         if (_notificationsVisible)
         {
             _notificationsView.Width = 35;
-            _notificationsView.X = Pos.AnchorEnd(_notificationsView.Width + 1);
+            _notificationsView.X = Pos.AnchorEnd(36);
         }
         UpdateLayout();
     }
@@ -384,7 +383,7 @@ public class MainWindow : Toplevel
     private async Task RunWithProgressAsync(string title, Func<CancellationToken, Task> work)
     {
         var cts = CancellationHelper.CreateLinked(TimeSpan.FromSeconds(Math.Max(5, _state.Options.Http.TimeoutSeconds)));
-        var progress = new ProgressBar { X = 1, Y = 1, Width = Dim.Fill() - 2, Height = 1, Pulse = true };
+        var progress = new ProgressBar { X = 1, Y = 1, Width = Dim.Fill() - 2, Height = 1 };
         var label = new Label("Press ESC to cancel") { X = 1, Y = 3 };
 
         var cancel = new Button("Cancel") { X = Pos.Center(), Y = 5 };
