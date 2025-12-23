@@ -7,8 +7,8 @@ namespace Unchained.Application.Queries
     public class GetEpgQuery : IRequest<ApiResponse<List<EpgItemDto>>>
     {
         public int ChannelId { get; set; }
-        public DateTime? From { get; set; }
-        public DateTime? To { get; set; }
+        public DateTimeOffset? From { get; set; }
+        public DateTimeOffset? To { get; set; }
         public bool ForceRefresh { get; set; } = false;
     }
 
@@ -27,7 +27,7 @@ namespace Unchained.Application.Queries
         {
             try
             {
-                var epg = await _epgService.GetEpgAsync(request.ChannelId, request.From, request.To);
+                var epg = await _epgService.GetEpgAsync(request.ChannelId, request.From, request.To, request.ForceRefresh);
                 return ApiResponse<List<EpgItemDto>>.SuccessResult(epg, $"Found {epg.Count} EPG items");
             }
             catch (Exception ex)

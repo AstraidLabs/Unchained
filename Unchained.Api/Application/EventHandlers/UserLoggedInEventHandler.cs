@@ -1,7 +1,6 @@
 ﻿using Unchained.Application.Events;
 using Unchained.Hubs;
 using Microsoft.AspNetCore.SignalR;
-using Unchained.Models;
 using Unchained.Services.Background;
 using Unchained.Services.Channels;
 using Unchained.Services.Epg;
@@ -9,6 +8,7 @@ using Unchained.Services.Background.Core;
 using Unchained.Services.Background.Services;
 using Unchained.Services.Session;
 using MediatR;
+using Unchained.Domain;
 
 namespace Unchained.Application.EventHandlers
 {
@@ -151,13 +151,13 @@ namespace Unchained.Application.EventHandlers
                         {
                             try
                             {
-                                await epgService.GetEpgAsync(channel.ChannelId, DateTime.Now, DateTime.Now.AddHours(6));
+                                await epgService.GetEpgAsync(channel.Id.Value, DateTimeOffset.Now, DateTimeOffset.Now.AddHours(6));
                                 logger.LogDebug("Preloaded EPG for channel {ChannelId} ({ChannelName})",
-                                    channel.ChannelId, channel.Name);
+                                    channel.Id.Value, channel.Name);
                             }
                             catch (Exception ex)
                             {
-                                logger.LogDebug(ex, "Failed to preload EPG for channel {ChannelId}", channel.ChannelId);
+                                logger.LogDebug(ex, "Failed to preload EPG for channel {ChannelId}", channel.Id.Value);
                             }
 
                             // Prevent overwhelming the API
@@ -220,18 +220,18 @@ namespace Unchained.Application.EventHandlers
         /// <summary>
         /// Pre-warm EPG pro populární kanály
         /// </summary>
-        private async Task WarmPopularChannelsEpgAsync(IEpgService epgService, List<ChannelDto> channels, ILogger logger)
+        private async Task WarmPopularChannelsEpgAsync(IEpgService epgService, IEnumerable<Channel> channels, ILogger logger)
         {
             foreach (var channel in channels)
             {
                 try
                 {
-                    await epgService.GetEpgAsync(channel.ChannelId, DateTime.Now, DateTime.Now.AddHours(3));
-                    logger.LogDebug("Warmed EPG cache for popular channel {ChannelId}", channel.ChannelId);
+                    await epgService.GetEpgAsync(channel.Id.Value, DateTimeOffset.Now, DateTimeOffset.Now.AddHours(3));
+                    logger.LogDebug("Warmed EPG cache for popular channel {ChannelId}", channel.Id.Value);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogDebug(ex, "Failed to warm EPG for channel {ChannelId}", channel.ChannelId);
+                    logger.LogDebug(ex, "Failed to warm EPG for channel {ChannelId}", channel.Id.Value);
                 }
 
                 await Task.Delay(50); // Malé zpoždění mezi požadavky

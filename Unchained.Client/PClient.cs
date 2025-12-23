@@ -170,12 +170,13 @@ public class PClient : IPClient, IDisposable, IAsyncDisposable
     /// <param name="from">Optional start time of the interval.</param>
     /// <param name="to">Optional end time of the interval.</param>
     /// <returns>List of program items.</returns>
-    public async Task<ApiResponse<List<EpgItemDto>>> GetEpgAsync(int channelId, DateTime? from = null, DateTime? to = null)
+    public async Task<ApiResponse<List<EpgItemDto>>> GetEpgAsync(int channelId, DateTimeOffset? from = null, DateTimeOffset? to = null, bool refresh = false)
     {
         var url = $"magenta/epg/{channelId}";
         var query = new List<string>();
         if (from.HasValue) query.Add($"from={from:O}");
         if (to.HasValue) query.Add($"to={to:O}");
+        if (refresh) query.Add("refresh=true");
         if (query.Count > 0) url += "?" + string.Join("&", query);
 
         var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -189,12 +190,13 @@ public class PClient : IPClient, IDisposable, IAsyncDisposable
     /// <param name="from">Optional start time of the interval.</param>
     /// <param name="to">Optional end time of the interval.</param>
     /// <returns>Dictionary mapping channel IDs to EPG items.</returns>
-    public async Task<ApiResponse<Dictionary<int, List<EpgItemDto>>>> GetEpgBulkAsync(IEnumerable<int> channelIds, DateTime? from = null, DateTime? to = null)
+    public async Task<ApiResponse<Dictionary<int, List<EpgItemDto>>>> GetEpgBulkAsync(IEnumerable<int> channelIds, DateTimeOffset? from = null, DateTimeOffset? to = null, bool refresh = false)
     {
         var idList = string.Join(",", channelIds);
         var query = new List<string> { $"ids={idList}" };
         if (from.HasValue) query.Add($"from={from:O}");
         if (to.HasValue) query.Add($"to={to:O}");
+        if (refresh) query.Add("refresh=true");
         var url = "magenta/epg/bulk?" + string.Join("&", query);
 
         var request = new HttpRequestMessage(HttpMethod.Get, url);

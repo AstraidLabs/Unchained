@@ -9,6 +9,7 @@ namespace Unchained.Application.Queries;
 public class GetBulkEpgQuery : IRequest<ApiResponse<Dictionary<int, List<EpgItemDto>>>>
 {
     public IEnumerable<int> ChannelIds { get; set; } = Enumerable.Empty<int>();
-    public DateTime? From { get; set; }
-    public DateTime? To { get; set; }
+    public DateTimeOffset? From { get; set; }
+    public DateTimeOffset? To { get; set; }
+    public bool ForceRefresh { get; set; }
 }

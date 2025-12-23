@@ -13,14 +13,22 @@ public class EpgService : IEpgService
         _logger = logger;
     }
 
-    public async Task<List<EpgItemDto>> GetEpgAsync(int channelId, DateTime? from = null, DateTime? to = null)
+    public async Task<List<EpgItemDto>> GetEpgAsync(int channelId, DateTimeOffset? from = null, DateTimeOffset? to = null, bool forceRefresh = false)
     {
         await _magenta.InitializeAsync();
-        return await _magenta.GetEpgAsync(channelId, from, to);
+        return await _magenta.GetEpgAsync(channelId, from, to, forceRefresh);
     }
 
-    public string GenerateXmlTv(List<EpgItemDto> epg, int channelId)
+    public async Task<Dictionary<int, List<EpgItemDto>>> GetEpgForChannelsAsync(IEnumerable<int> channelIds, DateTimeOffset? from = null, DateTimeOffset? to = null, bool forceRefresh = false)
     {
-        return _magenta.GenerateXmlTv(epg, channelId);
+        await _magenta.InitializeAsync();
+        var tasks = channelIds.Select(async id =>
+        {
+            var epg = await _magenta.GetEpgAsync(id, from, to, forceRefresh);
+            return (ChannelId: id, Epg: epg);
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.ToDictionary(r => r.ChannelId, r => r.Epg);
     }
 }

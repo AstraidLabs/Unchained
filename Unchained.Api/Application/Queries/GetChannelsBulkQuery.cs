@@ -28,7 +28,17 @@ public class GetChannelsBulkQueryHandler : IRequestHandler<GetChannelsBulkQuery,
         try
         {
             var channels = await _channelService.GetChannelsAsync();
-            var filtered = channels.Where(c => request.ChannelIds.Contains(c.ChannelId)).ToList();
+            var filtered = channels
+                .Where(c => request.ChannelIds.Contains(c.Id.Value))
+                .Select(c => new ChannelDto
+                {
+                    ChannelId = c.Id.Value,
+                    TvgId = c.TvgId ?? c.Id.ToString(),
+                    Name = c.Name,
+                    LogoUrl = c.LogoUrl ?? string.Empty,
+                    HasArchive = c.HasArchive
+                })
+                .ToList();
             return ApiResponse<List<ChannelDto>>.SuccessResult(filtered, $"Found {filtered.Count} channels");
         }
         catch (Exception ex)

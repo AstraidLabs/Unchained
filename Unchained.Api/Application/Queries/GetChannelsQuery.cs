@@ -25,7 +25,17 @@ namespace Unchained.Application.Queries
             try
             {
                 var channels = await _channelService.GetChannelsAsync(request.ForceRefresh);
-                return ApiResponse<List<ChannelDto>>.SuccessResult(channels, $"Found {channels.Count} channels");
+                var dto = channels
+                    .Select(c => new ChannelDto
+                    {
+                        ChannelId = c.Id.Value,
+                        TvgId = c.TvgId ?? c.Id.ToString(),
+                        Name = c.Name,
+                        LogoUrl = c.LogoUrl ?? string.Empty,
+                        HasArchive = c.HasArchive
+                    })
+                    .ToList();
+                return ApiResponse<List<ChannelDto>>.SuccessResult(dto, $"Found {dto.Count} channels");
             }
             catch (Exception ex)
             {

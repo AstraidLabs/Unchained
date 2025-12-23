@@ -5,6 +5,9 @@ using Unchained.Extensions;
 using Unchained.Models;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Net.Http.Headers;
+using Unchained.Infrastructure.Playlist;
 
 namespace Unchained.Controllers;
 
@@ -104,7 +107,7 @@ public class MagentaController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<List<EpgItemDto>>), 200)]
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
     [ProducesResponseType(typeof(ApiResponse<string>), 404)]
-    public async Task<IActionResult> GetEpg(int channelId, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    public async Task<IActionResult> GetEpg(int channelId, [FromQuery] DateTimeOffset? from = null, [FromQuery] DateTimeOffset? to = null, [FromQuery(Name = "refresh")] bool refresh = false)
     {
         if (channelId <= 0)
         {
@@ -118,7 +121,8 @@ public class MagentaController : ControllerBase
             {
                 ChannelId = channelId,
                 From = from,
-                To = to
+                To = to,
+                ForceRefresh = refresh
             };
             var result = await _mediator.Send(query);
             return Ok(result);
@@ -136,7 +140,7 @@ public class MagentaController : ControllerBase
     [HttpGet("epg/bulk")]
     [ProducesResponseType(typeof(ApiResponse<Dictionary<int, List<EpgItemDto>>>), 200)]
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
-    public async Task<IActionResult> GetEpgBulk([FromQuery(Name = "ids")] string ids, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    public async Task<IActionResult> GetEpgBulk([FromQuery(Name = "ids")] string ids, [FromQuery] DateTimeOffset? from = null, [FromQuery] DateTimeOffset? to = null, [FromQuery(Name = "refresh")] bool refresh = false)
     {
         if (string.IsNullOrWhiteSpace(ids))
         {
@@ -159,7 +163,8 @@ public class MagentaController : ControllerBase
             {
                 ChannelIds = parsed,
                 From = from,
-                To = to
+                To = to,
+                ForceRefresh = refresh
             };
             var result = await _mediator.Send(query);
             return Ok(result);
@@ -281,18 +286,28 @@ public class MagentaController : ControllerBase
     /// Generates an M3U playlist for the authenticated user. Requires an active
     /// session to obtain channel data and streaming URLs.
     /// </summary>
-    [HttpGet("playlist")]
+    [HttpGet("m3u")]
+    [OutputCache(Duration = 90, VaryByQueryKeys = new[] { "profile" })]
     [ProducesResponseType(typeof(FileResult), 200)]
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
-    public async Task<IActionResult> GetPlaylist()
+    public async Task<IActionResult> GetPlaylist([FromQuery(Name = "profile")] string? profile = null, [FromQuery(Name = "refresh")] bool refresh = false)
     {
         try
         {
-            var query = new GeneratePlaylistQuery();
-            var playlist = await _mediator.Send(query);
-            var fileName = $"magentatv_playlist_{DateTime.Now:yyyyMMdd_HHmmss}.m3u";
+            var baseUri = new Uri($"{Request.Scheme}://{Request.Host}{Request.PathBase}");
+            var xmlTvUri = new Uri(baseUri, "/magenta/xmltv");
+            var streamBaseUri = new Uri(baseUri, "/magenta/stream/");
+            var query = new GetM3uPlaylistQuery
+            {
+                Profile = ParseProfile(profile),
+                XmlTvUri = xmlTvUri,
+                StreamBaseUri = streamBaseUri,
+                ForceRefresh = refresh
+            };
 
-            return File(System.Text.Encoding.UTF8.GetBytes(playlist), "audio/x-mpegurl", fileName);
+            var result = await _mediator.Send(query);
+            SetShortCacheHeaders();
+            return File(result.Content, result.ContentType, result.FileName);
         }
         catch (UnauthorizedAccessException)
         {
@@ -308,28 +323,21 @@ public class MagentaController : ControllerBase
     }
 
     /// <summary>
-    /// Exports the EPG for a channel as an XMLTV document. Requires an active
-    /// session.
+    /// Exports the EPG as an XMLTV document for all channels.
     /// </summary>
-    [HttpGet("epgxml/{channelId}")]
+    [HttpGet("xmltv")]
+    [OutputCache(Duration = 90, VaryByQueryKeys = new[] { "from", "to" })]
     [ProducesResponseType(typeof(FileResult), 200)]
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
-    [ProducesResponseType(typeof(ApiResponse<string>), 404)]
-    public async Task<IActionResult> GetEpgXml(int channelId)
+    public async Task<IActionResult> GetEpgXml([FromQuery] DateTimeOffset? from = null, [FromQuery] DateTimeOffset? to = null, [FromQuery(Name = "refresh")] bool refresh = false)
     {
-        if (channelId <= 0)
-        {
-            return BadRequest(ApiResponse<string>.ErrorResult("Invalid channel ID",
-                new List<string> { "ID kanálu musí být větší než 0" }));
-        }
-
         try
         {
-            var query = new GenerateEpgXmlQuery { ChannelId = channelId };
-            var xml = await _mediator.Send(query);
-            var fileName = $"epg_channel_{channelId}_{DateTime.Now:yyyyMMdd}.xml";
+            var query = new GetXmlTvQuery { From = from, To = to, ForceRefresh = refresh };
+            var result = await _mediator.Send(query);
+            SetShortCacheHeaders();
 
-            return File(System.Text.Encoding.UTF8.GetBytes(xml), "application/xml", fileName);
+            return File(result.Content, result.ContentType, result.FileName);
         }
         catch (UnauthorizedAccessException)
         {
@@ -338,7 +346,7 @@ public class MagentaController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating EPG XML for channel {ChannelId}", channelId);
+            _logger.LogError(ex, "Error generating EPG XML");
             return StatusCode(500, ApiResponse<string>.ErrorResult("Internal server error",
                 new List<string> { "Došlo k chybě při generování EPG XML" }));
         }
@@ -404,5 +412,18 @@ public class MagentaController : ControllerBase
         return Ok(result);
     }
 
-    
+    private PlaylistProfile ParseProfile(string? profile) =>
+        Enum.TryParse<PlaylistProfile>(profile, true, out var parsed)
+            ? parsed
+            : PlaylistProfile.Generic;
+
+    private void SetShortCacheHeaders()
+    {
+        Response.GetTypedHeaders().CacheControl = new CacheControlHeaderValue
+        {
+            Public = true,
+            MaxAge = TimeSpan.FromSeconds(90)
+        };
+        Response.Headers.Vary = "Accept-Encoding";
+    }
 }

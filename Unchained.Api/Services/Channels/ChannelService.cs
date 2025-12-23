@@ -1,4 +1,5 @@
 using Unchained.Models;
+using Unchained.Domain;
 
 namespace Unchained.Services.Channels;
 
@@ -13,15 +14,13 @@ public class ChannelService : IChannelService
         _logger = logger;
     }
 
-    public async Task<List<ChannelDto>> GetChannelsAsync(bool forceRefresh = false)
+    public async Task<IReadOnlyCollection<Channel>> GetChannelsAsync(bool forceRefresh = false)
     {
         await _magenta.InitializeAsync();
-        return await _magenta.GetChannelsAsync(forceRefresh);
+        var channels = await _magenta.GetChannelsAsync(forceRefresh);
+        return channels.Select(Map).ToList();
     }
 
-    public async Task<string> GenerateM3UPlaylistAsync()
-    {
-        await _magenta.InitializeAsync();
-        return await _magenta.GenerateM3UPlaylistAsync();
-    }
+    private static Channel Map(ChannelDto dto) =>
+        new(new ChannelId(dto.ChannelId), dto.Name, dto.TvgId, dto.LogoUrl, dto.HasArchive);
 }
