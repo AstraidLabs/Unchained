@@ -11,7 +11,7 @@ public class AppState
     {
         lock (_sync)
         {
-            Options = options;
+            Options = Normalize(options);
         }
         Changed?.Invoke(Options);
     }
@@ -21,15 +21,34 @@ public class AppState
         lock (_sync)
         {
             apply(Options);
+            Options = Normalize(Options);
         }
         Changed?.Invoke(Options);
+    }
+
+    private static UnchainedOptions Normalize(UnchainedOptions options)
+    {
+        options.BaseUrl = NormalizeBaseUrl(options.BaseUrl);
+        options.Profile = string.IsNullOrWhiteSpace(options.Profile) ? "kodi" : options.Profile.Trim();
+        return options;
+    }
+
+    public static string NormalizeBaseUrl(string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = baseUrl.Trim().TrimEnd('/');
+        return $"{trimmed}/";
     }
 }
 
 public class UnchainedOptions
 {
     public string BaseUrl { get; set; } = string.Empty;
-    public string Profile { get; set; } = "generic";
+    public string Profile { get; set; } = "kodi";
     public AuthOptions Auth { get; set; } = new();
     public SignalROptions SignalR { get; set; } = new();
     public HttpOptions Http { get; set; } = new();

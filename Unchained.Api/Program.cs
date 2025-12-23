@@ -30,6 +30,7 @@ using Microsoft.AspNetCore.Mvc;
 using Spectre.Console;
 using Unchained.Infrastructure.Playlist;
 using Unchained.Infrastructure.Epg;
+using Unchained.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,7 +68,20 @@ builder.Services.AddResponseCompression(options =>
 });
 builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
-builder.Services.AddOutputCache();
+builder.Services.AddOutputCache(cacheOptions =>
+{
+    var gatewayOptions = builder.Configuration.GetSection(GatewayOptions.SectionName).Get<GatewayOptions>() ?? new GatewayOptions();
+    var playlistDuration = TimeSpan.FromSeconds(Math.Clamp(gatewayOptions.PlaylistCacheSeconds, 60, 120));
+    var xmlTvDuration = TimeSpan.FromSeconds(Math.Clamp(gatewayOptions.XmlTvCacheSeconds, 60, 120));
+
+    cacheOptions.AddPolicy("GatewayPlaylist", policyBuilder =>
+        policyBuilder.Expire(playlistDuration)
+            .SetVaryByQuery("profile"));
+
+    cacheOptions.AddPolicy("GatewayXmlTv", policyBuilder =>
+        policyBuilder.Expire(xmlTvDuration)
+            .SetVaryByQuery("from", "to"));
+});
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -93,6 +107,7 @@ builder.Services.AddSingleton<IInputSanitizer, InputSanitizer>();
 builder.Services.AddFfmpeg(builder.Configuration);
 builder.Services.AddSingleton<M3uGenerator>();
 builder.Services.AddSingleton<XmlTvGenerator>();
+builder.Services.AddSingleton<GatewayRuntimeState>();
 
 // Network configuration and service
 builder.Services.Configure<NetworkOptions>(
@@ -126,6 +141,8 @@ builder.Services.Configure<RateLimitOptions>(
     builder.Configuration.GetSection(RateLimitOptions.SectionName));
 builder.Services.Configure<TelemetryOptions>(
     builder.Configuration.GetSection(TelemetryOptions.SectionName));
+builder.Services.Configure<GatewayOptions>(
+    builder.Configuration.GetSection(GatewayOptions.SectionName));
 
 // Validate configuration
 builder.Services.AddSingleton<IValidateOptions<Unchained.Configuration.SessionOptions>, ValidateSessionOptions>();
@@ -267,6 +284,7 @@ if (corsOptions?.AllowedOrigins?.Length > 0)
 
 app.UseMiddleware<UserRateLimitingMiddleware>();
 app.UseRateLimiter();
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseOutputCache();
 
 

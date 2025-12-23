@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using Microsoft.Extensions.Logging;
 using Terminal.Gui;
 using Unchained.Tui.Api;
@@ -328,6 +329,13 @@ public class MainWindow : Window
             var result = await _api.PostAdminAsync(path, ct).ConfigureAwait(false);
             if (!result.Success)
             {
+                if (result.Error?.Status == HttpStatusCode.NotFound)
+                {
+                    LogInfo($"Admin endpoint {path} is not available (404).");
+                    Application.MainLoop.Invoke(() => MessageBox.Query("Admin", $"Endpoint {path} is not available.", "OK"));
+                    return;
+                }
+
                 ShowError("Admin action failed", result.Error, result.Message);
                 return;
             }
