@@ -76,11 +76,19 @@ builder.Services.AddOutputCache(cacheOptions =>
 
     cacheOptions.AddPolicy("GatewayPlaylist", policyBuilder =>
         policyBuilder.Expire(playlistDuration)
-            .SetVaryByQuery("profile"));
+            .SetVaryByQuery("profile")
+            .SetVaryByValue(context =>
+                new ValueTask<string?>($"{context.HttpContext.Request.Scheme}://{context.HttpContext.Request.Host}{context.HttpContext.Request.PathBase}")));
 
     cacheOptions.AddPolicy("GatewayXmlTv", policyBuilder =>
         policyBuilder.Expire(xmlTvDuration)
             .SetVaryByQuery("from", "to"));
+
+    cacheOptions.AddPolicy("MagentaPlaylist", policyBuilder =>
+        policyBuilder.Expire(TimeSpan.FromSeconds(90))
+            .SetVaryByQuery("profile")
+            .SetVaryByValue(context =>
+                new ValueTask<string?>($"{context.HttpContext.Request.Scheme}://{context.HttpContext.Request.Host}{context.HttpContext.Request.PathBase}")));
 });
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
