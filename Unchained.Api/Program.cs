@@ -31,6 +31,7 @@ using Spectre.Console;
 using Unchained.Infrastructure.Playlist;
 using Unchained.Infrastructure.Epg;
 using Unchained.Models;
+using Microsoft.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,8 +78,7 @@ builder.Services.AddOutputCache(cacheOptions =>
     cacheOptions.AddPolicy("GatewayPlaylist", policyBuilder =>
         policyBuilder.Expire(playlistDuration)
             .SetVaryByQuery("profile")
-            .SetVaryByValue(context =>
-                new ValueTask<string?>($"{context.HttpContext.Request.Scheme}://{context.HttpContext.Request.Host}{context.HttpContext.Request.PathBase}")));
+            .SetVaryByHeader(HeaderNames.Host, HeaderNames.XForwardedHost, HeaderNames.XForwardedProto));
 
     cacheOptions.AddPolicy("GatewayXmlTv", policyBuilder =>
         policyBuilder.Expire(xmlTvDuration)
@@ -87,8 +87,7 @@ builder.Services.AddOutputCache(cacheOptions =>
     cacheOptions.AddPolicy("MagentaPlaylist", policyBuilder =>
         policyBuilder.Expire(TimeSpan.FromSeconds(90))
             .SetVaryByQuery("profile")
-            .SetVaryByValue(context =>
-                new ValueTask<string?>($"{context.HttpContext.Request.Scheme}://{context.HttpContext.Request.Host}{context.HttpContext.Request.PathBase}")));
+            .SetVaryByHeader(HeaderNames.Host, HeaderNames.XForwardedHost, HeaderNames.XForwardedProto));
 });
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
