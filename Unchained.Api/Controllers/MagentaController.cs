@@ -287,7 +287,7 @@ public class MagentaController : ControllerBase
     /// session to obtain channel data and streaming URLs.
     /// </summary>
     [HttpGet("m3u")]
-    [OutputCache(Duration = 90, VaryByQueryKeys = new[] { "profile" })]
+    [OutputCache(PolicyName = "MagentaPlaylist")]
     [ProducesResponseType(typeof(FileResult), 200)]
     [ProducesResponseType(typeof(ApiResponse<string>), 401)]
     public async Task<IActionResult> GetPlaylist([FromQuery(Name = "profile")] string? profile = null, [FromQuery(Name = "refresh")] bool refresh = false)
